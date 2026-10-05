@@ -28,6 +28,7 @@ jobs:
       - uses: Swatinem/rust-cache@42c55942cfd355e94e6864616f4dbb3392bd2789
         with:
           key: personal-note
+          cache-on-failure: true
       - name: Install build tools
         run: |
           sudo apt-get update -qq
@@ -35,6 +36,10 @@ jobs:
           npm install --global corepack@0.34.0
           corepack enable
           yarn install --immutable
+      - name: Build notification templates
+        run: |
+          yarn turbo run build --filter=@ryot/transactional
+          yarn workspace @ryot/transactional copy-templates
       - name: Format and compile backend
         run: |
           cargo fmt --all
@@ -63,6 +68,13 @@ jobs:
           yarn turbo run build --filter=@ryot/frontend --filter=@ryot/docs
       - name: Compile release backend
         run: cargo build --release --locked
+      - name: Run personal note privacy and CRUD tests
+        run: |
+          docker create --name note-caddy caddy:2.9.1
+          docker cp note-caddy:/usr/bin/caddy /tmp/caddy
+          docker rm note-caddy
+          sudo install /tmp/caddy /usr/local/bin/caddy
+          yarn turbo run test --filter=@ryot/tests -- src/tests/personal-note.test.ts
       - name: Build deployable image
         run: |
           mkdir -p artifact/backend-amd64

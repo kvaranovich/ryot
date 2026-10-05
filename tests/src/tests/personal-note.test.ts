@@ -1,5 +1,5 @@
-import { CreateCustomMetadataDocument, DeletePersonalNoteDocument, MediaLot, PersonalNoteDocument, SetPersonalNoteDocument } from "@ryot/generated/graphql/backend/graphql";
-import { getGraphqlClient, registerTestUser } from "src/utils";
+import { CreateCustomMetadataDocument, DeletePersonalNoteDocument, MediaLot, PersonalNoteDocument, SetPersonalNoteDocument, UserMetadataDetailsDocument } from "@ryot/generated/graphql/backend/graphql";
+import { getGraphqlClient, registerAdminUser, registerTestUser } from "src/utils";
 import { beforeAll, describe, expect, it } from "vitest";
 
 describe("Private personal notes", () => {
@@ -9,6 +9,7 @@ describe("Private personal notes", () => {
  let other: { Authorization: string };
  let metadataId: string;
  beforeAll(async () => {
+  await registerAdminUser(url);
   const [ownerKey] = await registerTestUser(url);
   const [otherKey] = await registerTestUser(url);
   owner = { Authorization: `Bearer ${ownerKey}` };
@@ -24,12 +25,16 @@ describe("Private personal notes", () => {
  it("creates, updates and deletes one note per authenticated user and item", async () => {
   const input = { metadataId };
   expect((await client.request(PersonalNoteDocument, input, owner)).personalNote).toBeNull();
+  const before = (await client.request(UserMetadataDetailsDocument, input, owner)).userMetadataDetails.response;
   const created = (await client.request(SetPersonalNoteDocument, { ...input, text: "Recommended by a friend" }, owner)).setPersonalNote;
   expect(created.text).toBe("Recommended by a friend");
   expect((await client.request(PersonalNoteDocument, input, other)).personalNote).toBeNull();
   const updated = (await client.request(SetPersonalNoteDocument, { ...input, text: "  Моя личная заметка 🎮  " }, owner)).setPersonalNote;
   expect(updated.createdAt).toBe(created.createdAt);
   expect(updated.text).toBe("  Моя личная заметка 🎮  ");
+  const after = (await client.request(UserMetadataDetailsDocument, input, owner)).userMetadataDetails.response;
+  expect(after.reviews).toEqual(before.reviews);
+  expect(after.averageRating).toBe(before.averageRating);
   expect(await client.request(DeletePersonalNoteDocument, input, other)).toEqual({ deletePersonalNote: false });
   await client.request(SetPersonalNoteDocument, { ...input, text: "Another user's note" }, other);
   expect((await client.request(PersonalNoteDocument, input, owner)).personalNote?.text).toBe(updated.text);
@@ -50,5 +55,11 @@ describe("Private personal notes", () => {
    await expect(client.request(SetPersonalNoteDocument, { metadataId, text }, owner)).rejects.toThrow();
   }
   expect((await client.request(PersonalNoteDocument, { metadataId }, owner)).personalNote).toBeNull();
+ });
+ it("counts Unicode characters and rejects nonexistent media", async () => {
+  const text = "🎮".repeat(16000);
+  expect((await client.request(SetPersonalNoteDocument, { metadataId, text }, owner)).setPersonalNote.text).toBe(text);
+  await client.request(DeletePersonalNoteDocument, { metadataId }, owner);
+  await expect(client.request(SetPersonalNoteDocument, { metadataId: "nonexistent-note-fixture", text: "No orphan note" }, owner)).rejects.toThrow();
  });
 });
