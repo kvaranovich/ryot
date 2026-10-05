@@ -90,6 +90,17 @@ jobs:
           yarn turbo run build --filter=@ryot/frontend --filter=@ryot/docs
       - name: Compile release backend
         run: cargo build --release --locked
+      - name: Build unavailable test-only MinIO image from pinned official source
+        run: |
+          mkdir -p /tmp/note-minio
+          cat > /tmp/note-minio/Dockerfile <<'DOCKER'
+          FROM golang:1.24.8-bookworm AS build
+          RUN CGO_ENABLED=0 go install github.com/minio/minio@07c3a429bfed433e49018cb0f78a52145d4bedeb
+          FROM debian:bookworm-slim
+          COPY --from=build /go/bin/minio /usr/local/bin/minio
+          ENTRYPOINT ["minio"]
+          DOCKER
+          docker build -t minio/minio:latest /tmp/note-minio
       - name: Run personal note privacy and CRUD tests
         run: |
           docker create --name note-caddy caddy:2.9.1
