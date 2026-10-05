@@ -7,6 +7,7 @@ permissions:
 env:
   APP_VERSION: v10.5.0-kv.2
   UNKEY_ROOT_KEY: dummy-root-key
+  SERVER_ADMIN_ACCESS_TOKEN: test-admin-access-token-for-e2e-tests
   CARGO_PROFILE_DEV_DEBUG: 0
   CARGO_PROFILE_DEV_INCREMENTAL: false
   CARGO_PROFILE_RELEASE_LTO: thin
@@ -48,6 +49,7 @@ jobs:
         env:
           DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/postgres
         run: |
+          cargo build --locked
           docker run --detach --name note-codegen-db -e POSTGRES_PASSWORD=postgres -p 127.0.0.1:5432:5432 postgres:18-alpine
           cargo run > /tmp/note-codegen.log 2>&1 &
           backend_pid=$!
@@ -55,6 +57,7 @@ jobs:
           ready=0
           for attempt in $(seq 1 120); do
             if curl --fail --silent http://127.0.0.1:5000/config >/dev/null; then ready=1; break; fi
+            kill -0 "$backend_pid" 2>/dev/null || break
             sleep 2
           done
           test "$ready" = 1
