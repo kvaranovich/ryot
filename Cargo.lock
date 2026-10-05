@@ -4964,6 +4964,7 @@ version = "0.1.0"
 dependencies = [
  "async-graphql",
  "common-models",
+ "database-models",
  "dependent-details-utils",
  "dependent-entity-list-utils",
  "dependent-models",

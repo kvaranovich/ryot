@@ -1,0 +1,85 @@
+name: Personal note validation
+on:
+  push:
+    branches: [codex/kvh-39]
+permissions:
+  contents: read
+env:
+  APP_VERSION: v10.5.0-kv.2
+  UNKEY_ROOT_KEY: dummy-root-key
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_DEV_INCREMENTAL: false
+  CARGO_PROFILE_RELEASE_LTO: thin
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24.4.0
+      - uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e
+        with:
+          toolchain: 1.93.1
+          components: clippy,rustfmt
+      - uses: Swatinem/rust-cache@42c55942cfd355e94e6864616f4dbb3392bd2789
+        with:
+          key: personal-note
+      - name: Install build tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y clang libssl-dev pkg-config
+          npm install --global corepack@0.34.0
+          corepack enable
+          yarn install --immutable
+      - name: Format and compile backend
+        run: |
+          cargo fmt --all
+          cargo clippy --locked
+      - name: Generate typed GraphQL operations
+        env:
+          DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/postgres
+        run: |
+          docker run --detach --name note-codegen-db -e POSTGRES_PASSWORD=postgres -p 127.0.0.1:5432:5432 postgres:18-alpine
+          cargo run > /tmp/note-codegen.log 2>&1 &
+          backend_pid=$!
+          trap 'kill "$backend_pid" || true; docker rm --force note-codegen-db; tail -30 /tmp/note-codegen.log' EXIT
+          ready=0
+          for attempt in $(seq 1 120); do
+            if curl --fail --silent http://127.0.0.1:5000/config >/dev/null; then ready=1; break; fi
+            sleep 2
+          done
+          test "$ready" = 1
+          yarn turbo run backend-graphql --filter=@ryot/generated
+      - name: Format changed frontend files
+        run: |
+          yarn biome check --write apps/frontend/app/components/routes/media-item/personal-note.tsx 'apps/frontend/app/routes/_dashboard.media.item.$id._index.tsx' tests/src/tests/personal-note.test.ts
+      - name: Check types and build frontend and docs
+        run: |
+          yarn turbo run typecheck
+          yarn turbo run build --filter=@ryot/frontend --filter=@ryot/docs
+      - name: Compile release backend
+        run: cargo build --release --locked
+      - name: Build deployable image
+        run: |
+          mkdir -p artifact/backend-amd64
+          cp target/release/backend artifact/backend-amd64/backend
+          docker build --build-arg TARGETARCH=amd64 -t ryot-personal-note:v10.5.0-kv.2 .
+          docker save ryot-personal-note:v10.5.0-kv.2 | gzip > /tmp/ryot-personal-note-image.tar.gz
+      - name: Save generated and formatted source
+        if: always()
+        run: git diff --binary > /tmp/personal-note-generated.patch
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        if: always()
+        with:
+          name: personal-note-generated
+          path: /tmp/personal-note-generated.patch
+          retention-days: 7
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4
+        with:
+          name: personal-note-image
+          path: /tmp/ryot-personal-note-image.tar.gz
+          retention-days: 7
