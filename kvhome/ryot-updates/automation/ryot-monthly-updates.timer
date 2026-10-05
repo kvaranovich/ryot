@@ -1,0 +1,10 @@
+[Unit]
+Description=Report Ryot upstream changes on the first day of every month
+
+[Timer]
+OnCalendar=*-*-01 09:00:00 Europe/Warsaw
+Persistent=true
+Unit=ryot-monthly-updates.service
+
+[Install]
+WantedBy=timers.target

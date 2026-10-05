@@ -10,4 +10,4 @@ The resulting versioned image, checksum manifest and source bundle are transferr
 
 Server scripts expect the existing installation at `/srv/homelab/ryot`. Owner authentication and provider credentials remain local. Notifications use the server's existing alert bot. Private deployment journals and snapshots stay on the server.
 
-A daily Mac LaunchAgent should invoke the local runner while Docker Desktop is available. Enable scheduling only after the first full local build, tests and deployment pass. Local state is ignored by Git; recent candidates and the last validated and deployed artifacts are retained.
+Updates are never built or installed on a schedule. Install the monthly systemd service and timer on the server, replacing YOUR_SERVER_USER with the existing installation owner. Reports run on the first day of each month at 09:00 Europe/Warsaw and compare the installed upstream commit with public upstream changes. The owner chooses whether to invoke the Mac build pipeline. No Mac availability is required for reports. Local state is ignored by Git; recent candidates and the last validated and deployed artifacts are retained.

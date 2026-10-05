@@ -1,0 +1,12 @@
+[Unit]
+Description=Monthly Ryot upstream report without builds or deployment
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=YOUR_SERVER_USER
+WorkingDirectory=/srv/homelab/ryot
+ExecStart=/usr/bin/python3 /srv/homelab/ryot/automation/monthly-updates.py
+UMask=0077
+TimeoutStartSec=120

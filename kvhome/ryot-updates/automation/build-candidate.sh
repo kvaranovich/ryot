@@ -79,7 +79,7 @@ install /tmp/caddy /usr/local/bin/caddy
 yarn turbo run test --filter=@ryot/tests --env-mode=loose
 
 git add --all
-git -c user.name='Ryot update builder' -c user.email='ryot-builder@users.noreply.github.com' commit -m 'Apply private media patches to upstream candidate'
+git -c user.name='Ryot update builder' -c user.email='ryot-builder@users.noreply.github.com' commit -m 'Apply private media patches to upstream candidate [skip ci]'
 mkdir -p artifact/backend-amd64
 cp target/release/backend artifact/backend-amd64/backend
 image_tag="ryot-update:local-${RYOT_BUILD_ID:?}"
