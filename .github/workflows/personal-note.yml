@@ -73,7 +73,20 @@ jobs:
           yarn biome check --write apps/frontend/app/components/routes/media-item/personal-note.tsx 'apps/frontend/app/routes/_dashboard.media.item.$id._index.tsx' tests/src/tests/personal-note.test.ts
       - name: Check types and build frontend and docs
         run: |
-          yarn turbo run typecheck --filter="!@ryot/browser-extension"
+          node <<'JS'
+          const fs = require('fs');
+          for (const [path, command] of [['apps/frontend/package.json', 'react-router typegen'], ['apps/browser-extension/package.json', 'wxt prepare']]) {
+            const value = JSON.parse(fs.readFileSync(path));
+            value.scripts['prepare-types'] = command;
+            fs.writeFileSync(path, JSON.stringify(value));
+          }
+          const turbo = JSON.parse(fs.readFileSync('turbo.json'));
+          turbo.tasks['prepare-types'] = { cache: false };
+          fs.writeFileSync('turbo.json', JSON.stringify(turbo));
+          JS
+          yarn turbo run prepare-types --filter=@ryot/frontend --filter=@ryot/browser-extension
+          git restore apps/frontend/package.json apps/browser-extension/package.json turbo.json
+          yarn turbo run typecheck
           yarn turbo run build --filter=@ryot/frontend --filter=@ryot/docs
       - name: Compile release backend
         run: cargo build --release --locked
@@ -104,3 +117,49 @@ jobs:
           name: personal-note-image
           path: /tmp/ryot-personal-note-image.tar.gz
           retention-days: 7
+  upstream-types:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+        with:
+          ref: codex/personal-notes
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24.4.0
+      - uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e
+        with:
+          toolchain: 1.93.1
+          components: clippy
+      - uses: Swatinem/rust-cache@42c55942cfd355e94e6864616f4dbb3392bd2789
+        with:
+          key: personal-note
+          cache-on-failure: true
+      - name: Prepare build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y clang libssl-dev pkg-config
+          npm install --global corepack@0.34.0
+          corepack enable
+          yarn install --immutable
+          yarn turbo run build --filter=@ryot/transactional
+          yarn workspace @ryot/transactional copy-templates
+      - name: Validate upstream backend and complete frontend types
+        run: |
+          cargo clippy --locked
+          node <<'JS'
+          const fs = require('fs');
+          for (const [path, command] of [['apps/frontend/package.json', 'react-router typegen'], ['apps/browser-extension/package.json', 'wxt prepare']]) {
+            const value = JSON.parse(fs.readFileSync(path));
+            value.scripts['prepare-types'] = command;
+            fs.writeFileSync(path, JSON.stringify(value));
+          }
+          const turbo = JSON.parse(fs.readFileSync('turbo.json'));
+          turbo.tasks['prepare-types'] = { cache: false };
+          fs.writeFileSync('turbo.json', JSON.stringify(turbo));
+          JS
+          yarn turbo run prepare-types --filter=@ryot/frontend --filter=@ryot/browser-extension
+          git restore apps/frontend/package.json apps/browser-extension/package.json turbo.json
+          yarn turbo run typecheck
+          yarn turbo run build --filter=@ryot/docs
