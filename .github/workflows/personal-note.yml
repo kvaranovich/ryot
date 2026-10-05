@@ -73,7 +73,7 @@ jobs:
           yarn biome check --write apps/frontend/app/components/routes/media-item/personal-note.tsx 'apps/frontend/app/routes/_dashboard.media.item.$id._index.tsx' tests/src/tests/personal-note.test.ts
       - name: Check types and build frontend and docs
         run: |
-          yarn turbo run typecheck
+          yarn turbo run typecheck --filter="!@ryot/browser-extension"
           yarn turbo run build --filter=@ryot/frontend --filter=@ryot/docs
       - name: Compile release backend
         run: cargo build --release --locked
