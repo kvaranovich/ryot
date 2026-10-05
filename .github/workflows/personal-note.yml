@@ -51,6 +51,12 @@ jobs:
         run: |
           cargo build --locked
           docker run --detach --name note-codegen-db -e POSTGRES_PASSWORD=postgres -p 127.0.0.1:5432:5432 postgres:18-alpine
+          db_ready=0
+          for attempt in $(seq 1 60); do
+            if docker exec note-codegen-db pg_isready -h 127.0.0.1 -U postgres >/dev/null 2>&1; then db_ready=1; break; fi
+            sleep 1
+          done
+          test "$db_ready" = 1
           cargo run > /tmp/note-codegen.log 2>&1 &
           backend_pid=$!
           trap 'kill "$backend_pid" || true; docker rm --force note-codegen-db; tail -30 /tmp/note-codegen.log' EXIT

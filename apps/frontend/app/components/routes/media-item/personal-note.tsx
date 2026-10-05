@@ -54,6 +54,8 @@ function PersonalNoteEditor(props: { userId: string; metadataId: string }) {
      placeholder="Why you saved this, who recommended it, or anything you want to remember"
     />
     {save.isError || remove.isError ? <Alert color="red">Unable to update your note. Your draft is still here; try again.</Alert> : null}
+    {save.isSuccess ? <Text size="sm" c="dimmed">Note saved.</Text> : null}
+    {remove.isSuccess ? <Text size="sm" c="dimmed">Note deleted.</Text> : null}
     <Group justify="space-between" wrap="wrap">
      <Button
       loading={save.isPending}
