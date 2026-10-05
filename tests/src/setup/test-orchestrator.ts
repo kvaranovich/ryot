@@ -191,8 +191,8 @@ async function startBackendProcess(
 		};
 
 		const backendProcess = spawn(
-			"cargo",
-			["run", "--release", "--bin", "backend"],
+			path.join(MONOREPO_ROOT, "target/release/backend"),
+			[],
 			{
 				cwd: MONOREPO_ROOT,
 				stdio: ["ignore", "pipe", "pipe"],

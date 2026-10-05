@@ -70,7 +70,7 @@ jobs:
           yarn turbo run backend-graphql --filter=@ryot/generated
       - name: Format changed frontend files
         run: |
-          yarn biome check --write apps/frontend/app/components/routes/media-item/personal-note.tsx 'apps/frontend/app/routes/_dashboard.media.item.$id._index.tsx' tests/src/tests/personal-note.test.ts
+          yarn biome check --write apps/frontend/app/components/routes/media-item/personal-note.tsx 'apps/frontend/app/routes/_dashboard.media.item.$id._index.tsx' tests/src/tests/personal-note.test.ts tests/src/setup/test-orchestrator.ts
       - name: Check types and build frontend and docs
         run: |
           node <<'JS'
