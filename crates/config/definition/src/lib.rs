@@ -120,6 +120,10 @@ pub struct HardcoverConfig {
     /// The API key to be used.
     #[mask]
     pub api_key: String,
+    /// Preferred ISO 639-1 edition language for titles, covers and page counts.
+    /// Empty preserves work-level metadata. Descriptions are not translated.
+    #[serde(default)]
+    pub preferred_language: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Config, MaskedConfig)]
