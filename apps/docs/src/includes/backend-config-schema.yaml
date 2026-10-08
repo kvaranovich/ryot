@@ -31,6 +31,11 @@ books:
     # @env BOOKS_HARDCOVER_API_KEY
     api_key: ""
 
+    # Preferred ISO 639-1 edition language for titles, covers and page counts.
+    # Empty preserves work-level metadata. Descriptions are not translated.
+    # @env BOOKS_HARDCOVER_PREFERRED_LANGUAGE
+    preferred_language: ""
+
   # Settings related to Openlibrary.
   openlibrary:
     # The image sizes to fetch from Openlibrary.

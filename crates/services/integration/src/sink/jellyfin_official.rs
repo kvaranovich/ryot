@@ -11,7 +11,8 @@ use rust_decimal::{Decimal, dec};
 use serde_json::{Map, Value};
 
 /// Events producing progress for official-plugin flat payloads.
-pub const OFFICIAL_PROGRESS_EVENTS: &[&str] = &["PlaybackStart", "PlaybackStop", "PlaybackProgress"];
+pub const OFFICIAL_PROGRESS_EVENTS: &[&str] =
+    &["PlaybackStart", "PlaybackStop", "PlaybackProgress"];
 /// Event marking media watched; Ryot sinks have no delete semantics otherwise.
 pub const MARK_PLAYED_EVENT: &str = "MarkPlayed";
 /// Event marking media unwatched, which is ignored since deletes are unsupported.
@@ -231,20 +232,36 @@ fn bool_field(root: &Value, flat_keys: &[&str], item_keys: &[&str]) -> Option<bo
 fn provider_id(root: &Value, provider: &str, item_type: &str) -> Option<String> {
     if item_type.eq_ignore_ascii_case("Episode") {
         let sp = format!("SeriesProvider_{provider}");
-        if let Some(id) = root.as_object().and_then(|m| first_flat(m, &[&sp])).and_then(as_string) {
+        if let Some(id) = root
+            .as_object()
+            .and_then(|m| first_flat(m, &[&sp]))
+            .and_then(as_string)
+        {
             return Some(id);
         }
-        if let Some(id) = child(root, "Series").and_then(|s| child(s, "ProviderIds")).and_then(Value::as_object).and_then(|m| first_flat(m, &[provider])).and_then(as_string) {
+        if let Some(id) = child(root, "Series")
+            .and_then(|s| child(s, "ProviderIds"))
+            .and_then(Value::as_object)
+            .and_then(|m| first_flat(m, &[provider]))
+            .and_then(as_string)
+        {
             return Some(id);
         }
     }
     let prefixed = format!("Provider_{provider}");
-    let flat = root.as_object().and_then(|m| first_flat(m, &[&prefixed, provider])).and_then(as_string);
+    let flat = root
+        .as_object()
+        .and_then(|m| first_flat(m, &[&prefixed, provider]))
+        .and_then(as_string);
     if flat.is_some() {
         return flat;
     }
     ["Item", "Series"].iter().find_map(|section| {
-        child(root, section).and_then(|i| child(i, "ProviderIds")).and_then(Value::as_object).and_then(|m| first_flat(m, &[provider])).and_then(as_string)
+        child(root, section)
+            .and_then(|i| child(i, "ProviderIds"))
+            .and_then(Value::as_object)
+            .and_then(|m| first_flat(m, &[provider]))
+            .and_then(as_string)
     })
 }
 
@@ -258,9 +275,11 @@ pub fn parse_official_payload(value: &Value) -> Result<OfficialPlayback> {
         .ok_or_else(|| anyhow!("Official Jellyfin payload is missing NotificationType"))?;
     let item_type = string_field(value, &["ItemType"], &["Type"])
         .ok_or_else(|| anyhow!("Official Jellyfin payload is missing ItemType"))?;
-    let position_ticks = decimal_field(value, &["PlaybackPositionTicks", "PositionTicks"], &[
-        "PositionTicks",
-    ])
+    let position_ticks = decimal_field(
+        value,
+        &["PlaybackPositionTicks", "PositionTicks"],
+        &["PositionTicks"],
+    )
     .or_else(|| {
         child(value, "Session")
             .and_then(|s| child(s, "PlayState"))
@@ -270,12 +289,13 @@ pub fn parse_official_payload(value: &Value) -> Result<OfficialPlayback> {
     let runtime_ticks = decimal_field(value, &["RunTimeTicks", "RuntimeTicks"], &["RunTimeTicks"]);
     let played_to_completion =
         bool_field(value, &["PlayedToCompletion", "Played"], &["Played"]).unwrap_or(false);
-    let username = string_field(value, &["NotificationUsername", "Username"], &["Name"]).or_else(|| {
-        child(value, "User")
-            .and_then(|u| u.as_object())
-            .and_then(|m| first_flat(m, &["Name"]))
-            .and_then(as_string)
-    });
+    let username =
+        string_field(value, &["NotificationUsername", "Username"], &["Name"]).or_else(|| {
+            child(value, "User")
+                .and_then(|u| u.as_object())
+                .and_then(|m| first_flat(m, &["Name"]))
+                .and_then(as_string)
+        });
     let played_flag = child(value, "Item")
         .and_then(|i| child(i, "UserData"))
         .and_then(|u| child(u, "Played"))
@@ -324,7 +344,9 @@ pub fn resolve(
         return Ok(None);
     }
     let is_mark_played = info.event_name.eq_ignore_ascii_case(MARK_PLAYED_EVENT);
-    let supported = OFFICIAL_PROGRESS_EVENTS.iter().any(|e| info.event_name.eq_ignore_ascii_case(e));
+    let supported = OFFICIAL_PROGRESS_EVENTS
+        .iter()
+        .any(|e| info.event_name.eq_ignore_ascii_case(e));
     if !supported && !is_mark_played {
         return Ok(None);
     }
@@ -404,7 +426,11 @@ mod tests {
         })
     }
 
-    fn run_official(payload: Value, user: Option<&str>, provider: Option<&str>) -> Result<Option<ImportResult>> {
+    fn run_official(
+        payload: Value,
+        user: Option<&str>,
+        provider: Option<&str>,
+    ) -> Result<Option<ImportResult>> {
         let info = parse_official_payload(&payload)?;
         resolve(info, user, provider)
     }
@@ -437,7 +463,10 @@ mod tests {
         });
         let result = run_official(payload, None, None).unwrap();
         assert_eq!(seen_progress(&result), Some(dec!(25)));
-        assert_eq!(first_details(&result).unwrap(), ("101".to_owned(), Some(1), Some(2)));
+        assert_eq!(
+            first_details(&result).unwrap(),
+            ("101".to_owned(), Some(1), Some(2))
+        );
     }
 
     #[test]

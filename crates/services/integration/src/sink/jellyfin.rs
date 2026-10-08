@@ -189,15 +189,21 @@ pub async fn sink_progress(
         }
         let event = event_name(&value);
         let played = played_flag(&value);
-        let is_mark_played = event.as_deref().is_some_and(|e| e.eq_ignore_ascii_case("MarkPlayed"));
-        let is_mark_unplayed =
-            event.as_deref().is_some_and(|e| e.eq_ignore_ascii_case("MarkUnplayed"));
+        let is_mark_played = event
+            .as_deref()
+            .is_some_and(|e| e.eq_ignore_ascii_case("MarkPlayed"));
+        let is_mark_unplayed = event
+            .as_deref()
+            .is_some_and(|e| e.eq_ignore_ascii_case("MarkUnplayed"));
         if is_mark_unplayed {
             return Ok(None);
         }
         if is_mark_played || played {
             let user = nested_username(&value);
-            if !jellyfin_official::is_username_allowed(jellyfin_sink_username.as_deref(), user.as_deref()) {
+            if !jellyfin_official::is_username_allowed(
+                jellyfin_sink_username.as_deref(),
+                user.as_deref(),
+            ) {
                 return Ok(None);
             }
             let use_tvdb = jellyfin_sink_metadata_provider.as_deref() == Some("tvdb");
@@ -351,7 +357,11 @@ mod tests {
     }
 
     /// Run the unofficial sink, blocking on its async entrypoint for tests.
-    fn run_sink(payload: serde_json::Value, user: Option<&str>, provider: Option<&str>) -> Result<Option<ImportResult>> {
+    fn run_sink(
+        payload: serde_json::Value,
+        user: Option<&str>,
+        provider: Option<&str>,
+    ) -> Result<Option<ImportResult>> {
         futures::executor::block_on(sink_progress(
             payload.to_string(),
             user.map(str::to_owned),
