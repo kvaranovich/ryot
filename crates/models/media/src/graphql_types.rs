@@ -65,7 +65,7 @@ pub enum MetadataProgressUpdateChangeCreateNewCompletedInput {
 
 #[derive(InputObject, Debug, Default, Serialize, Deserialize, Clone)]
 pub struct MetadataProgressUpdateNewInProgressInput {
-    pub started_on: DateTimeUtc,
+    pub started_on: Option<DateTimeUtc>,
     #[graphql(flatten)]
     pub data: MetadataProgressUpdateCommonInput,
 }
@@ -265,4 +265,29 @@ pub struct GroupedCalendarEvent {
 #[derive(Debug, Default)]
 pub struct UpdateMediaEntityResult {
     pub notifications: Vec<UserNotificationContent>,
+}
+
+#[cfg(test)]
+mod undated_progress_tests {
+    use super::MetadataProgressUpdateNewInProgressInput;
+    use async_graphql::{EmptyMutation, EmptySubscription, Object, Schema};
+
+    struct Query;
+    #[Object]
+    impl Query {
+        async fn undated(&self, input: MetadataProgressUpdateNewInProgressInput) -> bool {
+            input.started_on.is_none()
+        }
+    }
+
+    #[test]
+    fn progress_start_date_is_optional_in_graphql() {
+        let schema = Schema::build(Query, EmptyMutation, EmptySubscription).finish();
+        let sdl = schema.sdl();
+        let input = sdl.split("input MetadataProgressUpdateNewInProgressInput {")
+            .nth(1).expect("input type exists").split('}').next().unwrap();
+        assert!(input.contains("startedOn: DateTime"));
+        assert!(!input.contains("startedOn: DateTime!"));
+        assert!(MetadataProgressUpdateNewInProgressInput::default().started_on.is_none());
+    }
 }
