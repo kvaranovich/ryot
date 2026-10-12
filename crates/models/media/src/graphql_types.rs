@@ -284,10 +284,19 @@ mod undated_progress_tests {
     fn progress_start_date_is_optional_in_graphql() {
         let schema = Schema::build(Query, EmptyMutation, EmptySubscription).finish();
         let sdl = schema.sdl();
-        let input = sdl.split("input MetadataProgressUpdateNewInProgressInput {")
-            .nth(1).expect("input type exists").split('}').next().unwrap();
+        let input = sdl
+            .split("input MetadataProgressUpdateNewInProgressInput {")
+            .nth(1)
+            .expect("input type exists")
+            .split('}')
+            .next()
+            .unwrap();
         assert!(input.contains("startedOn: DateTime"));
         assert!(!input.contains("startedOn: DateTime!"));
-        assert!(MetadataProgressUpdateNewInProgressInput::default().started_on.is_none());
+        assert!(
+            MetadataProgressUpdateNewInProgressInput::default()
+                .started_on
+                .is_none()
+        );
     }
 }

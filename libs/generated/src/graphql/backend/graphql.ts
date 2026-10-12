@@ -1632,7 +1632,7 @@ export type MetadataProgressUpdateNewInProgressInput = {
   providersConsumedOn?: InputMaybe<Array<Scalars['String']['input']>>;
   showEpisodeNumber?: InputMaybe<Scalars['Int']['input']>;
   showSeasonNumber?: InputMaybe<Scalars['Int']['input']>;
-  startedOn: Scalars['DateTime']['input'];
+  startedOn?: InputMaybe<Scalars['DateTime']['input']>;
 };
 
 export type MetadataProgressUpdateStartedAndFinishedOnDateInput = {
