@@ -160,7 +160,7 @@ pub async fn commit_import_seen_item(
         let change = MetadataProgressUpdateChange::CreateNewInProgress(
             MetadataProgressUpdateNewInProgressInput {
                 data: common,
-                started_on: Utc::now(),
+                started_on: Some(Utc::now()),
             },
         );
         ryot_log!(
@@ -495,7 +495,7 @@ pub async fn metadata_progress_update(
                 state: SeenState::InProgress,
                 metadata_id: &input.metadata_id,
                 payload: create_new_in_progress.data,
-                started_on: Some(create_new_in_progress.started_on),
+                started_on: create_new_in_progress.started_on,
             })
             .await?
         }
