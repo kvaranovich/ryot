@@ -446,7 +446,8 @@ pub async fn user_metadata_list(
                     )),
                     Order::Desc,
                     NullOrdering::Last,
-                );
+                )
+                .order_by(metadata::Column::Id, Order::Asc);
 
             let paginator = paginator.into_tuple::<String>().paginate(&ss.db, take);
             let ItemsAndPagesNumber {
