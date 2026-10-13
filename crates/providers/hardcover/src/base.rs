@@ -9,6 +9,7 @@ use crate::models::{Editions, Response, URL, get_isbn_body};
 
 pub struct HardcoverService {
     pub client: Client,
+    pub preferred_language: String,
 }
 
 impl HardcoverService {
@@ -17,7 +18,10 @@ impl HardcoverService {
             AUTHORIZATION,
             HeaderValue::from_str(&config.api_key)?,
         )]));
-        Ok(Self { client })
+        Ok(Self {
+            client,
+            preferred_language: config.preferred_language.trim().to_lowercase(),
+        })
     }
 
     pub async fn id_from_isbn(&self, isbn: &str) -> Option<String> {

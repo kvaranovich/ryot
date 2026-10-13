@@ -11,23 +11,23 @@ use media_models::{
     BookSpecifics, CommitMetadataGroupInput, MetadataDetails, MetadataGroupSearchItem,
     MetadataSearchItem, PartialMetadataWithoutId, PeopleSearchItem, UniqueMediaIdentifier,
 };
+use std::collections::HashMap;
 use traits::MediaProvider;
 
 use crate::{
     base::HardcoverService,
     models::{
-        AuthorsByPk, BooksByPk, PublishersByPk, Response, SeriesByPk, URL, get_search_response,
-        query_type_from_specifics,
+        AuthorsByPk, BooksByPk, LOCALIZED_BOOKS_QUERY, LocalizedBooks, PublishersByPk, Response,
+        SeriesByPk, URL, apply_localized_edition, get_search_response, query_type_from_specifics,
     },
 };
 
 #[async_trait]
 impl MediaProvider for HardcoverService {
     async fn metadata_details(&self, identifier: &str) -> Result<MetadataDetails> {
-        let body = format!(
-            r#"
-query {{
-  books_by_pk(id: {identifier}) {{
+        let body = r#"
+query($id:Int!,$language:String!,$localized:Boolean!) {
+  books_by_pk(id: $id) {
     id
     slug
     pages
@@ -38,23 +38,28 @@ query {{
     cached_tags
     release_date
     release_year
-    image {{ url }}
-    images {{ url }}
-    book_series {{ series {{ id name }} }}
-    contributions {{ contribution author_id author {{ name }} }}
-  }}
-}}
-    "#
-        );
+    image { url }
+    images { url }
+    book_series { series { id name } }
+    contributions { contribution author_id author { name } }
+    localized_editions: editions(
+      where: {language: {code2: {_eq: $language}}, title: {_is_null: false, _neq: ""}},
+      order_by: [{users_count: desc_nulls_last}, {release_date: desc_nulls_last}, {id: asc}],
+      limit: 1
+    ) @include(if: $localized) { title pages image { url } }
+  }
+}
+    "#;
         let data = self
             .client
             .post(URL)
-            .json(&serde_json::json!({"query": body}))
+            .json(&serde_json::json!({"query": body, "variables": {"id": identifier.parse::<i32>()?, "language": self.preferred_language, "localized": !self.preferred_language.is_empty()}}))
             .send()
             .await?
             .json::<Response<BooksByPk>>()
             .await?;
-        let data = data.data.books_by_pk;
+        let mut data = data.data.books_by_pk;
+        apply_localized_edition(&mut data);
         let mut images = vec![];
         if let Some(i) = data.image
             && let Some(image) = i.url
@@ -136,7 +141,39 @@ query {{
         _display_nsfw: bool,
         _source_specifics: &Option<MetadataSearchSourceSpecifics>,
     ) -> Result<SearchResults<MetadataSearchItem>> {
-        let response = get_search_response(query, page, "book", &self.client).await?;
+        let mut response = get_search_response(query, page, "book", &self.client).await?;
+        if !self.preferred_language.is_empty() {
+            let ids = response
+                .hits
+                .iter()
+                .filter_map(|hit| hit.document.id.parse::<i32>().ok())
+                .collect::<Vec<_>>();
+            if !ids.is_empty() {
+                // One bounded request for a result page. Localization failure preserves search.
+                let localized = async {
+                    self.client.post(URL).json(&serde_json::json!({
+                        "query": LOCALIZED_BOOKS_QUERY,
+                        "variables": {"ids": ids, "language": self.preferred_language, "limit": ids.len()}
+                    })).send().await?.error_for_status()?.json::<Response<LocalizedBooks>>().await
+                }.await;
+                if let Ok(localized) = localized {
+                    let mut books = HashMap::new();
+                    for mut book in localized.data.books {
+                        if apply_localized_edition(&mut book) {
+                            books.insert(book.id.to_string(), book);
+                        }
+                    }
+                    for hit in &mut response.hits {
+                        if let Some(book) = books.remove(&hit.document.id) {
+                            hit.document.title = book.title;
+                            if book.image.is_some() {
+                                hit.document.image = book.image;
+                            }
+                        }
+                    }
+                }
+            }
+        }
         let items = response
             .hits
             .into_iter()
